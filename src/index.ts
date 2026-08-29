@@ -353,7 +353,10 @@ export default {
 					turnstile_enabled: turnstileFullyConfigured,
 					turnstile_site_key: siteKey,
 					user_count: userCount || 0,
-					jwt_secret_configured: !!env.JWT_SECRET && String(env.JWT_SECRET).length >= 32
+					jwt_secret_configured: !!env.JWT_SECRET && String(env.JWT_SECRET).length >= 32,
+					email_provider: (env as any).RESEND_KEY ? 'resend' : ((env as any).SMTP_HOST ? 'smtp' : 'none'),
+					resend_configured: !!(env as any).RESEND_KEY,
+					smtp_configured: !!(env as any).SMTP_HOST
 				});
 			} catch (e) {
 				return handleError(e);
