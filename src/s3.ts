@@ -60,16 +60,6 @@ export async function uploadImage(env: S3Env, file: File, userId: string | numbe
         key = `${pathPrefix}/usr/${userId}/post/${postId}/${filename}`.replace(/^\/+/, '');
     }
 
-    if (env.BUCKET) {
-        const buffer = await file.arrayBuffer();
-        await env.BUCKET.put(key, buffer, {
-            httpMetadata: {
-                contentType: file.type,
-            },
-        });
-        return key;
-    }
-
     const supabaseApiBase = getSupabaseApiBase(env);
     if (supabaseApiBase) {
         const token = getSupabaseToken(env);
@@ -92,6 +82,16 @@ export async function uploadImage(env: S3Env, file: File, userId: string | numbe
             throw new Error(`Supabase upload failed: ${res.status} ${err}`);
         }
 
+        return key;
+    }
+
+    if (env.BUCKET) {
+        const buffer = await file.arrayBuffer();
+        await env.BUCKET.put(key, buffer, {
+            httpMetadata: {
+                contentType: file.type,
+            },
+        });
         return key;
     }
 
@@ -142,6 +142,11 @@ export async function uploadImage(env: S3Env, file: File, userId: string | numbe
 export function getKeyFromUrl(env: S3Env, imageUrl: string): string | null {
     if (!imageUrl) return null;
 
+    const supabasePublicBase = getSupabasePublicBase(env);
+    if (supabasePublicBase && imageUrl.startsWith(`${supabasePublicBase}/`)) {
+        return imageUrl.slice(supabasePublicBase.length + 1);
+    }
+
     // R2 binding: accept raw key, /r2/... path, or full URL containing /r2/...
     if (env.BUCKET) {
         if (!imageUrl.includes('://') && !imageUrl.startsWith('/')) return imageUrl;
@@ -158,11 +163,6 @@ export function getKeyFromUrl(env: S3Env, imageUrl: string): string | null {
                 return null;
             }
         }
-    }
-
-    const supabasePublicBase = getSupabasePublicBase(env);
-    if (supabasePublicBase && imageUrl.startsWith(`${supabasePublicBase}/`)) {
-        return imageUrl.slice(supabasePublicBase.length + 1);
     }
 
     if (env.AWS_ENDPOINT && env.AWS_BUCKET) {
@@ -185,11 +185,6 @@ export async function deleteImage(env: S3Env, imageUrl: string, expectedOwnerId?
         }
     }
 
-    if (env.BUCKET) {
-        await env.BUCKET.delete(key);
-        return true;
-    }
-
     const supabaseApiBase = getSupabaseApiBase(env);
     if (supabaseApiBase) {
         const token = getSupabaseToken(env);
@@ -201,6 +196,11 @@ export async function deleteImage(env: S3Env, imageUrl: string, expectedOwnerId?
             },
         });
         return res.ok;
+    }
+
+    if (env.BUCKET) {
+        await env.BUCKET.delete(key);
+        return true;
     }
 
     if (!env.AWS_ENDPOINT || !env.AWS_BUCKET) return false;
@@ -215,28 +215,6 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
     const keys: string[] = [];
     const pathPrefix = env.AWS_PATH_PREFIX || '';
     
-    // Use R2 binding if available
-    if (env.BUCKET) {
-        const prefix = pathPrefix.replace(/^\/+/, '');
-        const options = prefix ? { prefix } : {};
-        
-        const listed = await env.BUCKET.list(options);
-        for (const object of listed.objects) {
-            keys.push(object.key);
-        }
-        
-        let cursor = listed.truncated ? listed.cursor : undefined;
-        while (cursor) {
-            const nextListed = await env.BUCKET.list({ ...options, cursor });
-            for (const object of nextListed.objects) {
-                keys.push(object.key);
-            }
-            cursor = nextListed.truncated ? nextListed.cursor : undefined;
-        }
-        
-        return keys;
-    }
-
     const supabaseApiBase = getSupabaseApiBase(env);
     if (supabaseApiBase) {
         const token = getSupabaseToken(env);
@@ -260,6 +238,28 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
             }
         }
 
+        return keys;
+    }
+
+    // Use R2 binding if available
+    if (env.BUCKET) {
+        const prefix = pathPrefix.replace(/^\/+/, '');
+        const options = prefix ? { prefix } : {};
+        
+        const listed = await env.BUCKET.list(options);
+        for (const object of listed.objects) {
+            keys.push(object.key);
+        }
+        
+        let cursor = listed.truncated ? listed.cursor : undefined;
+        while (cursor) {
+            const nextListed = await env.BUCKET.list({ ...options, cursor });
+            for (const object of nextListed.objects) {
+                keys.push(object.key);
+            }
+            cursor = nextListed.truncated ? nextListed.cursor : undefined;
+        }
+        
         return keys;
     }
     
@@ -301,14 +301,14 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
 }
 
 export function getPublicUrl(env: S3Env, key: string, baseUrl?: string): string {
-    if (env.BUCKET) {
-        const base = (baseUrl || env.R2_PUBLIC_BASE_URL || '/r2').replace(/\/+$/, '');
-        return `${base}/${key}`;
-    }
-
     const supabasePublicBase = getSupabasePublicBase(env);
     if (supabasePublicBase) {
         return `${supabasePublicBase}/${key.replace(/^\/+/, '')}`;
+    }
+
+    if (env.BUCKET) {
+        const base = (baseUrl || env.R2_PUBLIC_BASE_URL || '/r2').replace(/\/+$/, '');
+        return `${base}/${key}`;
     }
 
     return `${env.AWS_ENDPOINT}/${env.AWS_BUCKET}/${key}`;

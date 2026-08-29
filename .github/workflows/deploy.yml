@@ -73,8 +73,14 @@ jobs:
           command: deploy --env=""
           secrets: |
             JWT_SECRET
+            SUPABASE_URL
+            SUPABASE_BUCKET
+            SUPABASE_SERVICE_ROLE_KEY
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Upload Turnstile secrets (optional)
         run: |
