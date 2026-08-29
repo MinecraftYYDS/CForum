@@ -21,11 +21,14 @@ CREATE TABLE users (
   reset_token_expires INTEGER, -- Timestamp
   pending_email TEXT,
   email_change_token TEXT,
+  google_sub TEXT,
   avatar_url TEXT,
   nickname TEXT,
   email_notifications INTEGER DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE UNIQUE INDEX idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL;
 
 CREATE TABLE categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,5 +112,5 @@ INSERT INTO users (email, username, password, role, verified, nickname) VALUES
 
 INSERT INTO categories (name) VALUES ('General'), ('Tech'), ('Random');
 
-INSERT INTO posts (author_id, title, content, category_id) VALUES (1, 'Welcome to 小型论坛demo', 'This is an official announcement from the admin.', 1);
+INSERT INTO posts (author_id, title, content, category_id) VALUES (1, 'Welcome to 天秤之眼校园论坛', 'This is an official announcement from the admin.', 1);
 INSERT INTO posts (author_id, title, content, category_id) VALUES (2, 'Hello World', 'This is the first post by Alice!', 2);
