@@ -10,6 +10,16 @@ export const onRequest: PagesFunction = async (context) => {
 	const isApiRoute = pathname.startsWith('/api/');
 	const isR2Route = pathname.startsWith('/r2/');
 
+	if (request.method === 'GET') {
+		const postMatch = pathname.match(/^\/posts\/(\d+)$/) || pathname.match(/^\/post\/(\d+)$/);
+		if (postMatch) {
+			const redirectUrl = new URL(request.url);
+			redirectUrl.pathname = '/post';
+			redirectUrl.search = `?id=${postMatch[1]}`;
+			return Response.redirect(redirectUrl.toString(), 302);
+		}
+	}
+
 	if (!isApiRoute && !isR2Route) {
 		return context.next();
 	}
