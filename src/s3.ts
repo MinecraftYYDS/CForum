@@ -4,6 +4,10 @@ import { AwsClient } from 'aws4fetch';
 export interface S3Env {
     BUCKET?: R2Bucket;
     R2_PUBLIC_BASE_URL?: string;
+    SUPABASE_URL?: string;
+    SUPABASE_BUCKET?: string;
+    SUPABASE_ANON_KEY?: string;
+    SUPABASE_SERVICE_ROLE_KEY?: string;
     AWS_ACCESS_KEY_ID?: string;
     AWS_SECRET_ACCESS_KEY?: string;
     AWS_REGION?: string;
@@ -19,6 +23,30 @@ function getClient(env: S3Env) {
         region: env.AWS_REGION,
         service: 's3',
     });
+}
+
+function getSupabaseBucketName(env: S3Env): string | null {
+    const bucket = env.SUPABASE_BUCKET?.trim();
+    if (!bucket) return null;
+    return bucket.replace(/^\/+|\/+$/g, '');
+}
+
+function getSupabasePublicBase(env: S3Env): string | null {
+    const url = env.SUPABASE_URL?.trim();
+    const bucket = getSupabaseBucketName(env);
+    if (!url || !bucket) return null;
+    return `${url.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}`;
+}
+
+function getSupabaseApiBase(env: S3Env): string | null {
+    const url = env.SUPABASE_URL?.trim();
+    const bucket = getSupabaseBucketName(env);
+    if (!url || !bucket) return null;
+    return `${url.replace(/\/+$/, '')}/storage/v1/object/${bucket}`;
+}
+
+function getSupabaseToken(env: S3Env): string | undefined {
+    return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
 }
 
 export async function uploadImage(env: S3Env, file: File, userId: string | number, postId: string | number = 'general', type: 'post' | 'avatar' = 'post'): Promise<string> {
@@ -42,8 +70,33 @@ export async function uploadImage(env: S3Env, file: File, userId: string | numbe
         return key;
     }
 
+    const supabaseApiBase = getSupabaseApiBase(env);
+    if (supabaseApiBase) {
+        const token = getSupabaseToken(env);
+        if (!token) {
+            throw new Error('Supabase Storage is configured but SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is missing');
+        }
+
+        const url = `${supabaseApiBase}/${key}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Supabase upload failed: ${res.status} ${err}`);
+        }
+
+        return key;
+    }
+
     if (!env.AWS_ENDPOINT || !env.AWS_BUCKET) {
-        throw new Error('S3/R2 not configured: Either bind an R2 bucket (BUCKET) or set AWS_ENDPOINT and AWS_BUCKET environment variables');
+        throw new Error('S3/R2 not configured: Either bind an R2 bucket (BUCKET), set AWS_ENDPOINT and AWS_BUCKET, or configure Supabase Storage');
     }
     try {
         new URL(env.AWS_ENDPOINT);
@@ -107,6 +160,11 @@ export function getKeyFromUrl(env: S3Env, imageUrl: string): string | null {
         }
     }
 
+    const supabasePublicBase = getSupabasePublicBase(env);
+    if (supabasePublicBase && imageUrl.startsWith(`${supabasePublicBase}/`)) {
+        return imageUrl.slice(supabasePublicBase.length + 1);
+    }
+
     if (env.AWS_ENDPOINT && env.AWS_BUCKET) {
         const prefix = `${env.AWS_ENDPOINT.replace(/\/+$/, '')}/${env.AWS_BUCKET}/`;
         if (imageUrl.startsWith(prefix)) return imageUrl.substring(prefix.length);
@@ -132,6 +190,19 @@ export async function deleteImage(env: S3Env, imageUrl: string, expectedOwnerId?
         return true;
     }
 
+    const supabaseApiBase = getSupabaseApiBase(env);
+    if (supabaseApiBase) {
+        const token = getSupabaseToken(env);
+        if (!token) return false;
+        const res = await fetch(`${supabaseApiBase}/${key}`, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return res.ok;
+    }
+
     if (!env.AWS_ENDPOINT || !env.AWS_BUCKET) return false;
 
     const s3 = getClient(env);
@@ -154,7 +225,6 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
             keys.push(object.key);
         }
         
-        // Handle pagination if needed
         let cursor = listed.truncated ? listed.cursor : undefined;
         while (cursor) {
             const nextListed = await env.BUCKET.list({ ...options, cursor });
@@ -164,6 +234,32 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
             cursor = nextListed.truncated ? nextListed.cursor : undefined;
         }
         
+        return keys;
+    }
+
+    const supabaseApiBase = getSupabaseApiBase(env);
+    if (supabaseApiBase) {
+        const token = getSupabaseToken(env);
+        if (!token) return keys;
+
+        const response = await fetch(`${supabaseApiBase}/?prefix=${encodeURIComponent(pathPrefix)}`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            return keys;
+        }
+
+        const result = await response.json().catch(() => null);
+        if (Array.isArray(result)) {
+            for (const item of result) {
+                if (typeof item?.name === 'string') keys.push(item.name);
+            }
+        }
+
         return keys;
     }
     
@@ -209,5 +305,11 @@ export function getPublicUrl(env: S3Env, key: string, baseUrl?: string): string 
         const base = (baseUrl || env.R2_PUBLIC_BASE_URL || '/r2').replace(/\/+$/, '');
         return `${base}/${key}`;
     }
+
+    const supabasePublicBase = getSupabasePublicBase(env);
+    if (supabasePublicBase) {
+        return `${supabasePublicBase}/${key.replace(/^\/+/, '')}`;
+    }
+
     return `${env.AWS_ENDPOINT}/${env.AWS_BUCKET}/${key}`;
 }

@@ -1,6 +1,6 @@
 # CForum
 
-一个基于 Cloudflare Workers + Pages + D1 + R2 的论坛，支持帖子、评论、图片上传、2FA 等。
+一个基于 Cloudflare Workers + Pages + D1 的论坛，支持帖子、评论、图片上传、2FA 等。图片存储兼容 Cloudflare R2 和 Supabase Storage。
 
 **💡 性能优化**：采用 Pages + Worker 混合部署，静态资源免费无限请求，节省 ~90% Worker 成本！
 
@@ -32,7 +32,7 @@
 - ✅ **帖子管理** - 发布、编辑、删除、置顶、分类
 - ✅ **评论系统** - 多级评论、支持回复
 - ✅ **用户认证** - 注册、登录、邮件验证、2FA
-- ✅ **图片上传** - 图片直接上传到 R2，支持 Markdown 预览
+- ✅ **图片上传** - 图片可直接上传到 R2 或 Supabase Storage，支持 Markdown 预览
 - ✅ **用户资料** - 头像上传、个人资料、邮件通知设置
 - ✅ **管理后台** - 用户管理、分类管理、设置管理
 - ✅ **访问统计** - 浏览量统计（post view count）

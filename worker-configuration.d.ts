@@ -14,6 +14,10 @@ declare namespace Cloudflare {
 	interface Env {
 		WORKER_URL?: "https://cforum.adysec.workers.dev" | "http://localhost:8787";
 		BUCKET?: R2Bucket;
+		SUPABASE_URL?: string;
+		SUPABASE_BUCKET?: string;
+		SUPABASE_ANON_KEY?: string;
+		SUPABASE_SERVICE_ROLE_KEY?: string;
 		cforum_db?: D1Database;
 	}
 }
