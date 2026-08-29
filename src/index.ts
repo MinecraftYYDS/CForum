@@ -292,12 +292,12 @@ export default {
 		const authenticate = async (req: Request) => {
 			const authHeader = req.headers.get('Authorization');
 			if (!authHeader || !authHeader.startsWith('Bearer ')) {
-				throw new Error('Unauthorized');
+				throw new Error('Auth Unauthorized');
 			}
 			const token = authHeader.split(' ')[1];
 			const payload = await security.verifyToken(token);
 			if (!payload) {
-				throw new Error('Unauthorized');
+				throw new Error('Auth Unauthorized');
 			}
 			return payload;
 		};
@@ -305,7 +305,7 @@ export default {
 		// Helper to handle errors
 		const handleError = (e: any) => {
 			const errString = String(e);
-			if (errString.includes('Unauthorized') || errString.includes('Invalid Token')) {
+			if (errString.includes('Auth Unauthorized') || errString.includes('Invalid Token')) {
 				return jsonResponse({ error: 'Unauthorized' }, 401);
 			}
 			return jsonResponse({ error: errString }, 500);

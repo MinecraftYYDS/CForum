@@ -71,6 +71,7 @@ export async function uploadImage(env: S3Env, file: File, userId: string | numbe
         const res = await fetch(url, {
             method: 'POST',
             headers: {
+                apikey: token,
                 Authorization: `Bearer ${token}`,
                 'Content-Type': file.type || 'application/octet-stream',
             },
@@ -192,6 +193,7 @@ export async function deleteImage(env: S3Env, imageUrl: string, expectedOwnerId?
         const res = await fetch(`${supabaseApiBase}/${key}`, {
             method: 'DELETE',
             headers: {
+                apikey: token,
                 Authorization: `Bearer ${token}`,
             },
         });
@@ -223,6 +225,7 @@ export async function listAllKeys(env: S3Env): Promise<string[]> {
         const response = await fetch(`${supabaseApiBase}/?prefix=${encodeURIComponent(pathPrefix)}`, {
             method: 'GET',
             headers: {
+                apikey: token,
                 Authorization: `Bearer ${token}`,
             },
         });
