@@ -329,7 +329,8 @@ export async function sendEmail(to: string, subject: string, htmlContent: string
             await sendViaResend(env, to, subject, htmlContent);
             return;
         } catch (e) {
-            console.error('[Resend] Failed, falling back to SMTP if possible...', e);
+            console.error('[Resend] Failed to send email:', e);
+            throw e;
         }
     }
 
