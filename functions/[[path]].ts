@@ -26,12 +26,18 @@ export const onRequest: PagesFunction = async (context) => {
 
 	try {
 		const isLocalDev = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-		let workerUrl = (env.WORKER_URL as string) ||
-			(isLocalDev ? 'http://localhost:8787' : 'https://cforum.adysec.workers.dev');
+		const configuredWorkerUrl = (env.WORKER_URL as string | undefined)?.trim();
+		let workerUrl = configuredWorkerUrl || (isLocalDev ? 'http://localhost:8787' : '');
 
 		if (!workerUrl.startsWith('http')) {
-			console.warn(`⚠️ Invalid WORKER_URL: ${workerUrl}`);
-			workerUrl = isLocalDev ? 'http://localhost:8787' : 'https://cforum.adysec.workers.dev';
+			console.error(`⚠️ Invalid or missing WORKER_URL: ${workerUrl || '(empty)'}`);
+			return Response.json(
+				{
+					error: 'WORKER_URL is not configured for Cloudflare Pages',
+					message: 'Set the WORKER_URL Pages secret to your deployed Worker URL, for example https://cforum.<your-workers-subdomain>.workers.dev',
+				},
+				{ status: 500, headers: corsHeaders }
+			);
 		}
 
 		console.log(`↔️ Proxying request to Worker: ${workerUrl}${pathname}`);

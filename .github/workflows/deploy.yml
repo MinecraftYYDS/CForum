@@ -168,6 +168,27 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
+      - name: Upload Pages Worker URL secret
+        run: |
+          set -euo pipefail
+
+          if [ -z "$WORKER_URL" ]; then
+            echo "::error title=Missing GitHub secret::WORKER_URL is not configured in GitHub repository secrets"
+            exit 1
+          fi
+
+          if [[ "$WORKER_URL" != http* ]]; then
+            echo "::error title=Invalid GitHub secret::WORKER_URL must start with http:// or https://"
+            exit 1
+          fi
+
+          echo "🔗 Uploading Pages WORKER_URL configuration..."
+          npx wrangler pages secret put WORKER_URL --project-name=cforum <<< "$WORKER_URL"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
