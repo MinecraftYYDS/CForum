@@ -1759,6 +1759,49 @@ const user = await env.cforum_db.prepare('SELECT * FROM users WHERE email_change
 			}
 		}
 
+		// POST /api/posts/:id/comments
+		if (url.pathname.match(/^\/api\/posts\/\d+\/comments$/) && method === 'POST') {
+			const postId = url.pathname.split('/')[3];
+			try {
+				const userPayload = await authenticate(request);
+				const body = await request.json() as any;
+
+				const ip = request.headers.get('CF-Connecting-IP') || '127.0.0.1';
+				if (!(await checkTurnstile(body, ip))) {
+					return jsonResponse({ error: 'Turnstile verification failed' }, 403);
+				}
+
+				const content = typeof body.content === 'string' ? body.content : '';
+				const parentId = body.parent_id ? Number(body.parent_id) : null;
+
+				if (!content) return jsonResponse({ error: 'Missing comment content' }, 400);
+				if (isVisuallyEmpty(content)) return jsonResponse({ error: 'Comment cannot be empty' }, 400);
+				if (hasInvisibleCharacters(content)) return jsonResponse({ error: 'Comment contains invalid invisible characters' }, 400);
+				if (hasControlCharacters(content)) return jsonResponse({ error: 'Comment contains invalid control characters' }, 400);
+				if (content.length > 3000) return jsonResponse({ error: 'Comment too long (Max 3000 chars)' }, 400);
+
+				const post = await env.cforum_db.prepare('SELECT id FROM posts WHERE id = ?').bind(postId).first();
+				if (!post) return jsonResponse({ error: 'Post not found' }, 404);
+
+				if (parentId !== null) {
+					if (!Number.isInteger(parentId) || parentId <= 0) {
+						return jsonResponse({ error: 'Invalid parent comment' }, 400);
+					}
+					const parent = await env.cforum_db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ?').bind(parentId, postId).first();
+					if (!parent) return jsonResponse({ error: 'Parent comment not found' }, 404);
+				}
+
+				const { success } = await env.cforum_db.prepare(
+					'INSERT INTO comments (post_id, parent_id, author_id, content) VALUES (?, ?, ?, ?)'
+				).bind(postId, parentId, userPayload.id, content.trim()).run();
+
+				await security.logAudit(userPayload.id, 'CREATE_COMMENT', 'comment', 'new', { post_id: postId }, request);
+				return jsonResponse({ success }, 201);
+			} catch (e) {
+				return handleError(e);
+			}
+		}
+
 		// DELETE /api/comments/:id
 		if (url.pathname.match(/^\/api\/comments\/\d+$/) && method === 'DELETE') {
 			const id = url.pathname.split('/').pop();
