@@ -522,7 +522,7 @@ export function IndexPage() {
 				{banner ? <div className="rounded-md border bg-muted/40 p-3 text-sm">{banner}</div> : null}
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
-						<h1 className="text-2xl font-semibold tracking-tight">小型论坛demo</h1>
+						<h1 className="text-2xl font-semibold tracking-tight">天秤之眼校园论坛</h1>
 						<p className="text-sm text-muted-foreground">由 Cloudflare Workers、Pages、D1、Supabase Storage 提供服务。</p>
 					</div>
 					<div className="flex items-center gap-2">
