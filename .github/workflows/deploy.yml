@@ -131,6 +131,23 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           BASE_URL: ${{ secrets.BASE_URL }}
 
+      - name: Upload Resend secrets (optional)
+        run: |
+          if [ -n "$RESEND_KEY" ]; then
+            echo "📧 Uploading Resend configuration..."
+            npx wrangler secret put RESEND_KEY --env="" <<< "$RESEND_KEY"
+            if [ -n "$RESEND_SEND" ]; then
+              npx wrangler secret put RESEND_SEND --env="" <<< "$RESEND_SEND"
+            fi
+          else
+            echo "⏭️  Skipping Resend configuration (not configured)"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          RESEND_KEY: ${{ secrets.RESEND_KEY }}
+          RESEND_SEND: ${{ secrets.RESEND_SEND }}
+
       - name: Upload SMTP secrets (optional)
         run: |
           if [ -n "$SMTP_HOST" ]; then
